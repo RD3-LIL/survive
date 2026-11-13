@@ -1,0 +1,1604 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:," />
+    <title>Wilderness Survival Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: #0d1710 radial-gradient(1200px 700px at 50% -10%, #1d3320 0%, #0d1710 60%);
+        color: #e8f0e2;
+        font-family: "VT323", monospace;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 8px 22px;
+        -webkit-tap-highlight-color: transparent;
+      }
+      button { min-height: 2.25rem; font-family: "VT323", monospace; cursor: pointer; }
+      #stage {
+        position: relative;
+        width: min(97vw, 880px);
+        aspect-ratio: 4 / 3;
+        border: 4px solid #4a3520;
+        outline: 2px solid #241708;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #20301c;
+        box-shadow: 0 18px 50px rgba(0,0,0,.55);
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      canvas#game {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+      /* ---------- HUD ---------- */
+      .hud { position: absolute; inset: 0; pointer-events: none; font-size: 20px; }
+      .hud .panel {
+        background: rgba(12, 20, 12, .78);
+        border: 2px solid rgba(0,0,0,.55);
+        border-radius: 4px;
+        padding: 4px 8px;
+        line-height: 1.15;
+      }
+      #hudClock { position: absolute; top: 8px; left: 8px; color: #ffe9a8; text-shadow: 1px 1px 0 #000; }
+      #hudClock .sub { color: #bcd8ae; font-size: 18px; }
+      #hudBtns { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; pointer-events: auto; }
+      .hbtn {
+        background: #2c4a26; color: #eaf6df; border: 2px solid #101c0d;
+        border-radius: 4px; font-size: 19px; padding: 2px 12px; min-height: 38px;
+        box-shadow: 0 2px 0 #101c0d;
+      }
+      .hbtn:active { transform: translateY(2px); box-shadow: none; }
+      #hudBars { position: absolute; left: 8px; bottom: 8px; width: min(240px, 42vw); }
+      .bar { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+      .bar .lab { flex: 0 0 auto; min-width: 62px; color: #dfeeda; font-size: 18px; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
+      .bar .track { flex: 1; height: 12px; background: #101408; border: 2px solid #000; border-radius: 2px; overflow: hidden; }
+      .bar .fill { height: 100%; width: 100%; transition: width .25s linear; }
+      #barHp .fill { background: #d94f3d; }
+      #barFood .fill { background: #e8a33d; }
+      #barWarm .fill { background: #57b7e8; }
+      #barEnergy .fill { background: #9ed45f; }
+      #hudInv {
+        position: absolute; right: 8px; bottom: 8px; max-width: 52%;
+        display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end;
+      }
+      .chip {
+        background: rgba(12,20,12,.78); border: 2px solid rgba(0,0,0,.55); border-radius: 4px;
+        padding: 1px 7px; font-size: 18px; color: #eaf6df; white-space: nowrap;
+      }
+      .chip b { color: #ffe9a8; font-weight: normal; }
+      .chip .sw { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border: 1px solid #000; vertical-align: baseline; }
+      #prompt {
+        position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%);
+        background: rgba(10,16,9,.85); border: 2px solid #000; border-radius: 4px;
+        color: #ffe9a8; padding: 3px 12px; font-size: 20px; display: none; white-space: nowrap;
+        max-width: 94%; text-overflow: ellipsis; overflow: hidden;
+      }
+      #toasts { position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%); text-align: center; width: 94%; }
+      .toast {
+        display: inline-block; background: rgba(10,16,9,.82); color: #eaf6df; border: 2px solid rgba(0,0,0,.6);
+        border-radius: 4px; padding: 1px 10px; margin: 2px; font-size: 19px;
+        animation: toastfade 2.6s forwards;
+      }
+      .toast.bad { color: #ffb3a3; }
+      .toast.good { color: #c8f5a8; }
+      @keyframes toastfade { 0% {opacity:0; transform: translateY(6px);} 12% {opacity:1; transform:none;} 78% {opacity:1;} 100% {opacity:0;} }
+      #warn {
+        position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+        color: #ffb3a3; font-size: 22px; text-shadow: 1px 1px 0 #000, 0 0 12px rgba(255,60,30,.5);
+        display: none; text-align: center; width: 94%;
+      }
+      /* ---------- Touch controls ---------- */
+      #touch { position: absolute; inset: auto 0 0 0; display: none; pointer-events: none; }
+      body.touch.playing #touch { display: block; }
+      #dpad { position: absolute; left: 10px; bottom: 118px; width: 132px; height: 132px; pointer-events: auto; }
+      .dbtn {
+        position: absolute; width: 44px; height: 44px; min-height: 44px;
+        background: rgba(20,34,18,.72); color: #eaf6df; border: 2px solid #000; border-radius: 6px; font-size: 20px; padding: 0;
+      }
+      #dUp { left: 44px; top: 0; } #dDown { left: 44px; top: 88px; }
+      #dLeft { left: 0; top: 44px; } #dRight { left: 88px; top: 44px; }
+      #actBtn {
+        position: absolute; right: 14px; bottom: 150px; width: 68px; height: 68px; min-height: 68px;
+        border-radius: 50%; background: rgba(122, 74, 22, .85); border: 3px solid #1c0f04; color: #ffe9a8;
+        font-size: 19px; pointer-events: auto;
+      }
+      /* ---------- Overlays / panels ---------- */
+      .overlay {
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: rgba(5, 10, 5, .72); padding: 10px; z-index: 5; overflow-y: auto;
+      }
+      .card {
+        background: #1c2b18; border: 3px solid #4a3520; outline: 2px solid #000; border-radius: 6px;
+        max-width: 560px; width: 100%; max-height: 100%; overflow-y: auto; padding: 14px 18px; text-align: center;
+        box-shadow: 0 14px 40px rgba(0,0,0,.6); margin: auto;
+      }
+      @media (max-width: 600px) {
+        .overlay { position: fixed; z-index: 60; padding: 10px; }
+        .card { max-height: calc(100dvh - 20px); }
+        #startKeys { display: none; }
+        .card h1 { font-size: 17px; }
+      }
+      .card h1 {
+        font-family: "Press Start 2P", monospace; font-size: clamp(17px, 4.4vw, 27px);
+        color: #ffe9a8; margin: 4px 0 10px; line-height: 1.5; text-shadow: 3px 3px 0 #54380f;
+      }
+      .card h2 { font-family: "Press Start 2P", monospace; font-size: 14px; color: #ffe9a8; margin: 2px 0 12px; line-height: 1.6; }
+      .card p { font-size: 21px; line-height: 1.3; color: #d8eccd; margin: 8px 0; }
+      .card .small { font-size: 18px; color: #a9c39a; }
+      .diffrow { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0 4px; }
+      .diff {
+        flex: 1 1 140px; background: #24381f; border: 3px solid #101c0d; border-radius: 6px; color: #d8eccd;
+        padding: 8px 8px 6px; font-size: 20px; line-height: 1.2; min-height: 64px;
+      }
+      .diff b { display: block; color: #ffe9a8; font-size: 22px; font-weight: normal; }
+      .diff.sel { border-color: #e8a33d; background: #33502a; }
+      .bigbtn {
+        background: #b06f1e; color: #fff3d6; border: 3px solid #2a1602; border-radius: 6px;
+        font-size: 26px; padding: 8px 30px; margin-top: 12px; box-shadow: 0 4px 0 #2a1602; min-height: 52px;
+      }
+      .bigbtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #2a1602; }
+      .keys { text-align: left; display: inline-block; margin: 6px auto 0; font-size: 20px; color: #cfe4c2; line-height: 1.35; }
+      .keys b { color: #ffe9a8; font-weight: normal; }
+      /* craft + goals panels */
+      .sheet {
+        position: absolute; top: 52px; right: 8px; width: min(330px, 92vw); z-index: 4;
+        background: rgba(16, 26, 14, .95); border: 3px solid #4a3520; outline: 2px solid #000; border-radius: 6px;
+        padding: 10px 12px; display: none; max-height: calc(100% - 130px); overflow-y: auto;
+      }
+      .sheet.open { display: block; }
+      .sheet h3 { font-family: "Press Start 2P", monospace; font-size: 11px; color: #ffe9a8; margin: 2px 0 10px; line-height: 1.6; }
+      .recipe { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid #31452a; }
+      .recipe:first-of-type { border-top: none; }
+      .recipe .info { flex: 1; text-align: left; }
+      .recipe .name { font-size: 21px; color: #eaf6df; line-height: 1.1; }
+      .recipe .cost { font-size: 17px; color: #a9c39a; line-height: 1.1; }
+      .recipe .cost .lack { color: #ff9a86; }
+      .recipe button {
+        background: #2c4a26; color: #eaf6df; border: 2px solid #101c0d; border-radius: 4px;
+        font-size: 19px; padding: 2px 12px; min-height: 40px;
+      }
+      .recipe button:disabled { opacity: .38; cursor: default; }
+      .recipe .owned { font-size: 18px; color: #9ed45f; }
+      .goal { text-align: left; font-size: 20px; color: #8fae84; padding: 3px 0 3px 24px; position: relative; line-height: 1.2; }
+      .goal::before { content: ""; position: absolute; left: 2px; top: 8px; width: 11px; height: 11px; border: 2px solid #5c7a50; background: transparent; }
+      .goal.done { color: #c8f5a8; }
+      .goal.done::before { background: #9ed45f; border-color: #9ed45f; }
+      #fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .7s; z-index: 6; }
+      #underbar {
+        width: min(97vw, 880px); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+        margin-top: 8px; color: #9db98f; font-size: 19px; line-height: 1.3;
+      }
+      #underbar b { color: #d8eccd; font-weight: normal; }
+      @media (max-width: 600px) {
+        .hud { font-size: 18px; }
+        #hudInv { display: none; }
+        #hudInvMini { display: flex !important; }
+        .card p { font-size: 19px; }
+        #hudClock { max-width: 148px; font-size: 18px; }
+        #hudClock .diffLab { display: none; }
+        .hbtn { font-size: 17px; padding: 2px 8px; min-height: 36px; }
+        #hudBars { top: 46px; bottom: auto; width: 158px; }
+        #hudBars .lab { min-width: 56px; font-size: 17px; }
+        #dpad { bottom: 8px; width: 126px; height: 126px; }
+        .dbtn { width: 42px; height: 42px; min-height: 42px; }
+        #dUp { left: 42px; top: 0; } #dDown { left: 42px; top: 84px; }
+        #dLeft { left: 0; top: 42px; } #dRight { left: 84px; top: 42px; }
+        #actBtn { bottom: 96px; right: 12px; width: 64px; height: 64px; min-height: 64px; }
+        #hudInvMini { bottom: 8px; }
+        #prompt { bottom: 152px; }
+        #toasts { top: 138px; bottom: auto; }
+        #warn { top: 118px; font-size: 19px; }
+      }
+      #hudInvMini {
+        display: none; position: absolute; right: 8px; bottom: 8px; max-width: 46%;
+        flex-wrap: wrap; gap: 4px; justify-content: flex-end;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="game" width="640" height="480"></canvas>
+
+      <div class="hud" id="hud" style="display:none">
+        <div id="hudClock" class="panel">Day 1<span class="sub"> · 7:00 AM</span></div>
+        <div id="hudBtns">
+          <button class="hbtn" id="btnGoals" type="button">Goals</button>
+          <button class="hbtn" id="btnCraft" type="button">Craft</button>
+          <button class="hbtn" id="btnEat" type="button">Eat</button>
+          <button class="hbtn" id="btnHelp" type="button" aria-label="Help and field notes">?</button>
+        </div>
+        <div id="warn"></div>
+        <div id="toasts"></div>
+        <div id="prompt"></div>
+        <div id="hudBars">
+          <div class="bar" id="barHp"><span class="lab">Health</span><div class="track"><div class="fill"></div></div></div>
+          <div class="bar" id="barFood"><span class="lab">Food</span><div class="track"><div class="fill"></div></div></div>
+          <div class="bar" id="barWarm"><span class="lab">Warmth</span><div class="track"><div class="fill"></div></div></div>
+          <div class="bar" id="barEnergy"><span class="lab">Energy</span><div class="track"><div class="fill"></div></div></div>
+        </div>
+        <div id="hudInv"></div>
+        <div id="hudInvMini"></div>
+      </div>
+
+      <div id="touch">
+        <div id="dpad">
+          <button class="dbtn" id="dUp" type="button" aria-label="Move up">&#9650;</button>
+          <button class="dbtn" id="dDown" type="button" aria-label="Move down">&#9660;</button>
+          <button class="dbtn" id="dLeft" type="button" aria-label="Move left">&#9664;</button>
+          <button class="dbtn" id="dRight" type="button" aria-label="Move right">&#9654;</button>
+        </div>
+        <button id="actBtn" type="button">ACT</button>
+      </div>
+
+      <div class="sheet" id="craftSheet">
+        <h3>CRAFTING</h3>
+        <div id="recipeList"></div>
+        <p style="font-size:17px;color:#a9c39a;margin:8px 0 2px;text-align:left">Tools are kept forever. Buildings are placed on the tile you are facing, so face an open patch of grass first.</p>
+      </div>
+
+      <div class="sheet" id="goalSheet">
+        <h3>PATH TO THRIVING</h3>
+        <div id="goalList"></div>
+        <p style="font-size:17px;color:#a9c39a;margin:8px 0 2px;text-align:left">Survive the nights, then build a life. The cabin is the finish line, but the forest keeps going after that.</p>
+      </div>
+
+      <div class="overlay" id="startOverlay">
+        <div class="card">
+          <h1>WILDERNESS<br />SURVIVAL</h1>
+          <p>You wake up in a deep forest with empty pockets and no idea how you got here. Chop, gather, fish, farm and build. Eat before you starve, stay warm after dark, and watch the treeline at night: wolves hunt when the light dies.</p>
+          <p class="small">This is real survival. Hunger, cold and teeth can all end the run.</p>
+          <div class="diffrow">
+            <button class="diff" data-diff="gentle" type="button"><b>Gentle</b>Cozy leaning. Slow hunger, mild nights, rare wolves.</button>
+            <button class="diff sel" data-diff="wild" type="button"><b>Wild</b>The mix: calm days, dangerous nights. The intended way.</button>
+            <button class="diff" data-diff="brutal" type="button"><b>Brutal</b>Fast hunger, bitter cold, wolves every night.</button>
+          </div>
+          <button class="bigbtn" id="btnStart" type="button">Wake Up</button>
+        </div>
+      </div>
+
+      <div class="overlay" id="overOverlay" style="display:none">
+        <div class="card">
+          <h2 id="overTitle">THE FOREST WINS</h2>
+          <p id="overText"></p>
+          <p id="overStats" class="small"></p>
+          <button class="bigbtn" id="btnRetry" type="button">Try Again</button>
+        </div>
+      </div>
+
+      <div class="overlay" id="helpOverlay" style="display:none">
+        <div class="card">
+          <h2>FIELD NOTES</h2>
+          <div class="keys">
+            <div><b>Food:</b> berries from bushes, fish from the pond, potatoes from crops you plant. Raw meat and fish can turn your stomach. Cook at a campfire.</div>
+            <div><b>Warmth:</b> nights are cold enough to kill. Stand near a lit fire, build a tent, or finish the cabin. Rain makes everything colder.</div>
+            <div><b>Fires:</b> burn through fuel. Face the fire and press Act to cook food first, or feed it wood when your pack has no raw food.</div>
+            <div><b>Fishing:</b> face the pond with a rod, press Act to cast, then press Act again the instant you see the splash.</div>
+            <div><b>Wolves:</b> come after 9 PM and will not cross firelight. An axe ends an argument in two swings.</div>
+            <div><b>Sleep:</b> at a tent, cabin, or lit fire. Sleeping grows crops, regrows berries, and costs you a night's hunger.</div>
+          </div>
+          <button class="bigbtn" id="btnCloseHelp" type="button">Back</button>
+        </div>
+      </div>
+
+      <div id="fade"></div>
+    </div>
+
+    <div id="underbar">
+      <span><b>Goal:</b> survive, then thrive. A cabin by the pond means you made it.</span>
+      <span><b>Keys:</b> WASD move · E act · F eat · C craft · G goals</span>
+    </div>
+
+    <script>
+    "use strict";
+    /* ============================================================
+       WILDERNESS SURVIVAL: a 2D pixel survival game.
+       Cozy gathering and building by day, real danger by night.
+       ============================================================ */
+    var TS = 16, MW = 40, MH = 30;
+    var canvas = document.getElementById("game");
+    var ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+
+    /* ---------- pixel sprite factory ---------- */
+    function makeSprite(rows, pal, scale) {
+      scale = scale || 1;
+      var h = rows.length, w = 0, i, j;
+      for (i = 0; i < h; i++) w = Math.max(w, rows[i].length);
+      var c = document.createElement("canvas");
+      c.width = Math.max(1, w * scale); c.height = Math.max(1, h * scale);
+      var g = c.getContext("2d");
+      for (i = 0; i < h; i++) {
+        for (j = 0; j < rows[i].length; j++) {
+          var col = pal[rows[i][j]];
+          if (col) { g.fillStyle = col; g.fillRect(j * scale, i * scale, scale, scale); }
+        }
+      }
+      return c;
+    }
+    function flipSprite(src) {
+      var c = document.createElement("canvas");
+      c.width = src.width; c.height = src.height;
+      var g = c.getContext("2d");
+      g.translate(src.width, 0); g.scale(-1, 1); g.drawImage(src, 0, 0);
+      return c;
+    }
+
+    var PAL_TREE = { g: "#2e5d27", G: "#3f7a33", l: "#57a047", t: "#6b4a26", T: "#54371c" };
+    var SPR = {};
+    SPR.pine = makeSprite([
+      ".......GG.......",
+      "......GggG......",
+      "......GggG......",
+      ".....GggggG.....",
+      "....GggllggG....",
+      "....GggggggG....",
+      "...GggllllggG...",
+      "...GggggggggG...",
+      "..GgggllgggggG..",
+      "..GggggggggggG..",
+      ".GggggggggggggG.",
+      ".......tt.......",
+      ".......tt.......",
+      "......TTTT......"
+    ], PAL_TREE);
+    SPR.oak = makeSprite([
+      "....llllllll....",
+      "..llggggggggll..",
+      ".lgggGGgggggggl.",
+      ".lgGGggggllgggl.",
+      "lgggggllgggggggl",
+      "lggllgggggGGgggl",
+      ".lggggGGggggggl.",
+      ".lgggggggggggl..",
+      "..llggggggll....",
+      "....tttt........",
+      "....tttt........",
+      "...tttttt......."
+    ], PAL_TREE);
+    SPR.stump = makeSprite([
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      ".....oooooo.....",
+      "....oooooooo....",
+      "....owwooowo....",
+      "....oooooooo....",
+      ".....tttttt....."
+    ], { o: "#a97c46", w: "#c9a05e", t: "#6b4a26" });
+    SPR.rock = makeSprite([
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      ".....aaaa.......",
+      "...aAAAAAAAAa...",
+      "..aAAwwwwAAAa...",
+      "..aAAwwwwAAAaa..",
+      ".aAAAAwwAAAAAAa.",
+      ".aAAAAAAAAAAAAa.",
+      "..aaaaaaaaaaaa.."
+    ], { a: "#5d6066", A: "#82868d", w: "#a9adb3" });
+    SPR.bushBerry = makeSprite([
+      "................",
+      "................",
+      "................",
+      "....gggggggg....",
+      "..gggGGgggggg...",
+      "..gRggggRgggGg..",
+      ".ggggggggggggg..",
+      ".gGgRgggggRggG..",
+      "..ggggggggggg...",
+      "...gGgggggGg....",
+      "....tt..tt......"
+    ], { g: "#33602b", G: "#477c38", R: "#d94f6a", t: "#4c3a20" });
+    SPR.bushPlain = makeSprite([
+      "................",
+      "................",
+      "................",
+      "....gggggggg....",
+      "..gggGGgggggg...",
+      "..gggggggggGg...",
+      ".ggggggggggggg..",
+      ".gGgggggggggGg..",
+      "..ggggggggggg...",
+      "...gGgggggGg....",
+      "....tt..tt......"
+    ], { g: "#33602b", G: "#477c38", t: "#4c3a20" });
+    SPR.tuft = makeSprite([
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "....g..g..g.....",
+      "...gg..g..gg....",
+      "...g.g.g.g.g....",
+      "....ggggggg.....",
+      ".....g.g.g......"
+    ], { g: "#5da24c" });
+    SPR.flower = makeSprite([
+      "................",
+      "................",
+      "................",
+      "................",
+      ".......y........",
+      "......yfy.......",
+      "...g...y....g...",
+      "....g..g...g....",
+      "....g..g..g.....",
+      ".....ggggg......"
+    ], { g: "#4c8a3e", y: "#f2d24b", f: "#e87fa1" });
+    var PAL_FIRE = { t: "#6b4a26", T: "#54371c", o: "#e87f2e", y: "#f7c948", r: "#c94f2e", a: "#3a3f45", A: "#565d66" };
+    SPR.fire0 = makeSprite([
+      "................",
+      ".......y........",
+      "......oyo.......",
+      "......oyo.......",
+      ".....oyyyo......",
+      ".....orro.......",
+      "....oorroo......",
+      ".a..orro...a....",
+      "..a.oooo..a.....",
+      "...tttttt.......",
+      "..tTTttTTt......",
+      "................"
+    ], PAL_FIRE);
+    SPR.fire1 = makeSprite([
+      "................",
+      "......y.........",
+      ".....oyo........",
+      ".....oyyo.......",
+      "....oyyyyo......",
+      "....oorro.......",
+      "...oorrroo......",
+      ".a..orro...a....",
+      "..a.oooo..a.....",
+      "...tttttt.......",
+      "..tTTttTTt......",
+      "................"
+    ], PAL_FIRE);
+    SPR.fireOut = makeSprite([
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      "................",
+      ".a..AAAA...a....",
+      "..a.AAAA..a.....",
+      "...tttttt.......",
+      "..tTTttTTt......",
+      "................"
+    ], PAL_FIRE);
+    SPR.tent = makeSprite([
+      "................................",
+      "...............oo...............",
+      "..............oooo..............",
+      ".............occcco.............",
+      "............occcccco............",
+      "...........occcddccco...........",
+      "..........occccddccccco.........",
+      ".........occcccddccccc co.......".replace(" ", ""),
+      "........occccccddccccccco.......",
+      ".......occcccccddccccccccco.....",
+      "......occccccccddcccccccccco....",
+      ".....tttttttttttttttttttttttt..."
+    ], { o: "#8a5a30", c: "#c98d4b", d: "#5e3c1c", t: "#4c3a20" });
+    SPR.cabin = makeSprite([
+      "..........rrrrrrrrrrrrrrrrrrrrrrrrrrrr..........",
+      "........rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr........",
+      ".......rrRRrrrrrrrrrrrrrrrrrrrrrrrrRRrr.......",
+      "......rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr......",
+      ".....tttttttttttttttttttttttttttttttttttt.....",
+      ".....twwwwwttttttttttttttttttttwwwwwt........",
+      ".....twyyywtDDDDDDDDDDDDDDDDDDtwyyywt........",
+      ".....twyyywtDddddddddddddddddDtwyyywt........",
+      ".....twwwwwtDddKKddddddddKKddD twwwwwt.......".replace(" ", ""),
+      ".....tttttttDddKKddddddddKKddDttttttt.......",
+      ".....tLLLLLtDddddddddddddddddDtLLLLLt.......",
+      ".....tLLLLLtDddddddddddddddddDtLLLLLt.......",
+      ".....tLLLLLtDddddddDdddddddddDtLLLLLt.......",
+      ".....tttttttDddddddDdddddddddDttttttt.......",
+      ".....ssssssssssssssDssssssssssssssss.........",
+      "..................sDs........................"
+    ], { r: "#7a4a28", R: "#96603a", t: "#5e3c1c", w: "#3a2a16", y: "#f7c948", D: "#4c3a20", d: "#6b4a26", K: "#2c1c0e", L: "#77542e", s: "#8b8f96" });
+    SPR.crop0 = makeSprite([
+      "................","................","................","................",
+      "................","................","................","................",
+      "................","......g..g......",".....gg..gg.....","......gggg......"
+    ], { g: "#6cb457" });
+    SPR.crop1 = makeSprite([
+      "................","................","................","................",
+      "................","................",".....g....g.....","....gg.g.gg.....",
+      "....g.ggg.g.....",".....ggggg......",".......g........","......ggg......."
+    ], { g: "#57a047" });
+    SPR.crop2 = makeSprite([
+      "................","................","................","....g..gg..g....",
+      "...gg.gGGg.gg...","....gGGGGGg.....",".....GGGGG......","....gGGgGGg.....",
+      ".....ggggg......",".......g........","......ggg.......",".....ooooo......"
+    ], { g: "#57a047", G: "#7cc464", o: "#c98d4b" });
+    var PAL_PL = { h: "#5e3c1c", s: "#e8b58a", e: "#22252a", t: "#3f6fb5", T: "#33598f", p: "#5b4632", b: "#3a2a16" };
+    SPR.plDown = makeSprite([
+      "................",
+      ".....hhhhhh.....",
+      "....hhhhhhhh....",
+      "....ssssssss....",
+      "....sesssses....",
+      "....ssssssss....",
+      ".....ssssss.....",
+      "....tttttttt....",
+      "...stttttttts...",
+      "...stttttttts...",
+      "....tttttttt....",
+      ".....pppppp.....",
+      ".....pp..pp.....",
+      ".....pp..pp.....",
+      "....bbb..bbb....",
+      "................"
+    ], PAL_PL);
+    SPR.plUp = makeSprite([
+      "................",
+      ".....hhhhhh.....",
+      "....hhhhhhhh....",
+      "....hhhhhhhh....",
+      "....hhhhhhhh....",
+      "....hhhhhhhh....",
+      ".....hhhhhh.....",
+      "....TTTTTTTT....",
+      "...sTTTTTTTTs...",
+      "...sTTTTTTTTs...",
+      "....TTTTTTTT....",
+      ".....pppppp.....",
+      ".....pp..pp.....",
+      ".....pp..pp.....",
+      "....bbb..bbb....",
+      "................"
+    ], PAL_PL);
+    SPR.plSide = makeSprite([
+      "................",
+      ".....hhhhhh.....",
+      "....hhhhhhhh....",
+      "....sssssss.....",
+      "....sessss......",
+      "....ssssss......",
+      ".....ssss.......",
+      "....ttttttt.....",
+      "....ttttttts....",
+      "....ttttttt.....",
+      "....tttttt......",
+      ".....ppppp......",
+      ".....pp.pp......",
+      ".....pp.pp......",
+      "....bbb.bbb.....",
+      "................"
+    ], PAL_PL);
+    SPR.plSideL = flipSprite(SPR.plSide);
+    SPR.axe = makeSprite([
+      "..aaaa..........",
+      ".aAAAAa.........",
+      ".aAAAAtt........",
+      "..aaattt........",
+      ".....ttt........",
+      "....ttt.........",
+      "...ttt..........",
+      "..ttt...........",
+      ".ttt............",
+      "ttt............."
+    ], { a: "#5d6066", A: "#a9adb3", t: "#8a5a30" });
+    SPR.rod = makeSprite([
+      "..........tt....",
+      ".........t.t....",
+      "........t...t...",
+      ".......t.....t..",
+      "......t.........",
+      ".....t..........",
+      "....t...........",
+      "...t............",
+      "..tt............",
+      ".tt............."
+    ], { t: "#8a5a30" });
+    SPR.wolf = makeSprite([
+      "................................................",
+      "..aa............................................",
+      ".aWWa..........aaaaaaaaaaaaaaaaaaaaaaaa.........",
+      ".aWWWWa.......aWWWWWWWWWWWWWWWWWWWWWWWa.........",
+      "..aWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWaa.......",
+      "...aWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWa.a.......",
+      "....aWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWa...........",
+      ".....aWWa..aWWa..........aWWa....aWWa..........",
+      ".....aWWa..aWWa..........aWWa....aWWa..........",
+      ".....aaaa..aaaa..........aaaa....aaaa.........."
+    ], { a: "#3a3f45", W: "#6d7278" });
+    SPR.wolfL = flipSprite(SPR.wolf);
+    SPR.rabbit = makeSprite([
+      "...w..w.........",
+      "...w..w.........",
+      "...w..w.........",
+      "..wwwwww........",
+      "..wewwww........",
+      "..wwwwwww.......",
+      ".wwwwwwwww......",
+      "..wwwwwww......."
+    ], { w: "#e8e6df", e: "#22252a" });
+    SPR.bobber = makeSprite([
+      "....r...........",
+      "...rwr..........",
+      "....r..........."
+    ], { r: "#d94f3d", w: "#f2f0e6" });
+    SPR.fish = makeSprite([
+      "................",
+      "....oo..........",
+      "..ooOOoo....t...",
+      ".oOOOOOOoo.tt...",
+      ".oOeOOOOOoot....",
+      "..ooOOoo....t...",
+      "....oo.........."
+    ], { o: "#7fb3c9", O: "#a8cede", e: "#22252a", t: "#5d8fa8" });
+    var waterA = makeSprite([
+      "................","................","..ww............","....ww..........",
+      "................","................","......ww........","................",
+      "................","................","................","................",
+      "................","................","................","................"
+    ], { w: "#7ec3e8" });
+    var waterB = makeSprite([
+      "................","................","................","......ww........",
+      "..ww............","................","................","................",
+      "................","....ww..........","................","................",
+      "................","................","................","................"
+    ], { w: "#7ec3e8" });
+
+    /* ---------- world generation ---------- */
+    var ground, solid, water, objects, crops, fires;
+    var key = function (x, y) { return x + "," + y; };
+    function inB(x, y) { return x >= 0 && y >= 0 && x < MW && y < MH; }
+
+    function genWorld() {
+      ground = []; solid = []; water = []; objects = {}; crops = {}; fires = {};
+      var x, y;
+      for (y = 0; y < MH; y++) {
+        ground[y] = []; solid[y] = []; water[y] = [];
+        for (x = 0; x < MW; x++) {
+          ground[y][x] = (x * 7 + y * 13) % 5;
+          solid[y][x] = false; water[y][x] = false;
+        }
+      }
+      /* pond: a blob in the south-west, plus a small pool north-east */
+      function pond(cx, cy, r) {
+        for (var yy = cy - r - 1; yy <= cy + r + 1; yy++)
+          for (var xx = cx - r - 1; xx <= cx + r + 1; xx++) {
+            if (!inB(xx, yy)) continue;
+            var d = Math.sqrt((xx - cx) * (xx - cx) * 1.3 + (yy - cy) * (yy - cy));
+            if (d < r) { water[yy][xx] = true; solid[yy][xx] = true; }
+          }
+      }
+      pond(8, 22, 4); pond(33, 6, 2);
+      /* border thicket */
+      for (x = 0; x < MW; x++) { placeObj(x, 0, "tree"); placeObj(x, MH - 1, "tree"); }
+      for (y = 0; y < MH; y++) { placeObj(0, y, "tree"); placeObj(MW - 1, y, "tree"); }
+      /* scatter */
+      var tries;
+      function scatter(type, n) {
+        tries = 0;
+        while (n > 0 && tries < 600) {
+          tries++;
+          var xx = 2 + Math.floor(Math.random() * (MW - 4));
+          var yy = 2 + Math.floor(Math.random() * (MH - 4));
+          if (water[yy][xx] || objects[key(xx, yy)]) continue;
+          if (Math.abs(xx - 20) <= 2 && Math.abs(yy - 15) <= 2) continue; /* spawn clearing */
+          placeObj(xx, yy, type); n--;
+        }
+      }
+      scatter("tree", 85); scatter("rock", 24); scatter("bush", 16);
+      scatter("tuft", 42); scatter("flower", 20);
+      /* guaranteed starter bush near spawn */
+      if (!objects[key(18, 13)]) placeObj(18, 13, "bush");
+    }
+    function placeObj(x, y, type) {
+      var o = { x: x, y: y, type: type };
+      if (type === "tree") { o.hp = 5; o.pine = Math.random() < 0.45; o.solid = true; }
+      if (type === "rock") { o.hp = 6; o.solid = true; }
+      if (type === "bush") { o.berries = true; o.solid = true; }
+      if (type === "stump") { o.hp = 2; o.solid = true; }
+      objects[key(x, y)] = o;
+      if (o.solid) solid[y][x] = true;
+    }
+    function removeObj(o) {
+      delete objects[key(o.x, o.y)];
+      if (o.solid) solid[o.y][o.x] = false;
+    }
+
+    /* ---------- game state ---------- */
+    var DIFFS = {
+      gentle: { drain: 0.55, cold: 0.45, wolfMax: 1, wolfChance: 0.35, label: "Gentle" },
+      wild:   { drain: 1.0,  cold: 1.0,  wolfMax: 2, wolfChance: 0.8,  label: "Wild" },
+      brutal: { drain: 1.45, cold: 1.6,  wolfMax: 3, wolfChance: 1.0,  label: "Brutal" }
+    };
+    var S;
+    var wolves = [], rabbits = [], particles = [];
+    var diff = DIFFS.wild;
+
+    function newGame(d) {
+      diff = d || diff;
+      genWorld();
+      wolves = []; rabbits = []; particles = [];
+      S = {
+        running: true, over: false, won: false,
+        day: 1, mins: 7 * 60, rain: false,
+        px: 20 * TS + 8, py: 15 * TS + 8, dir: "down", moving: false,
+        swingT: 0, swingCD: 0, hurtT: 0,
+        hp: 100, hunger: 88, warmth: 85, energy: 95,
+        inv: { wood: 0, stone: 0, fiber: 0, berry: 2, seed: 1, fishRaw: 0, fishCooked: 0, meatRaw: 0, meatCooked: 0, potato: 0 },
+        axe: false, rod: false, tentAt: null, cabinAt: null,
+        fish: null, /* {phase, t, tx, ty} */
+        stats: { trees: 0, fish: 0, cooked: 0, planted: 0, built: 0 },
+        goals: { wood5: false, axe: false, fire: false, fish: false, plant: false, tent: false, cook: false, cabin: false },
+        night: false, wolvesSpawned: false, msgCD: 0
+      };
+      for (var i = 0; i < 3; i++) rabbits.push({ x: 120 + Math.random() * 400, y: 100 + Math.random() * 280, t: Math.random() * 4, dx: 0, dy: 0 });
+      pickWeather();
+      renderRecipes(); renderGoals(); updateHUD(true);
+    }
+    function pickWeather() { S.rain = Math.random() < 0.28; }
+
+    /* ---------- helpers ---------- */
+    function tileOf(px) { return Math.floor(px / TS); }
+    function facedTile() {
+      var cx = S.px, cy = S.py - 2;
+      var dx = 0, dy = 0;
+      if (S.dir === "down") dy = 1; else if (S.dir === "up") dy = -1;
+      else if (S.dir === "left") dx = -1; else dx = 1;
+      return { x: tileOf(cx + dx * 13), y: tileOf(cy + dy * 13) };
+    }
+    function distTiles(ax, ay, bx, by) { return Math.sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by)); }
+    function toast(msg, cls) {
+      var box = document.getElementById("toasts");
+      var el = document.createElement("span");
+      el.className = "toast" + (cls ? " " + cls : "");
+      el.textContent = msg;
+      box.appendChild(el);
+      while (box.children.length > 3) box.removeChild(box.firstChild);
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 2650);
+    }
+    function addInv(item, n) {
+      S.inv[item] += n;
+      if (n > 0) {
+        var names = { wood: "Wood", stone: "Stone", fiber: "Fiber", berry: "Berries", seed: "Seed", fishRaw: "Raw fish", fishCooked: "Cooked fish", meatRaw: "Raw meat", meatCooked: "Cooked meat", potato: "Potato" };
+        toast("+" + n + " " + names[item]);
+      }
+      updateHUD();
+    }
+    function burst(x, y, color, n) {
+      for (var i = 0; i < (n || 6); i++)
+        particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 46, vy: -Math.random() * 40 - 8, t: 0, life: 0.45 + Math.random() * 0.3, c: color });
+    }
+
+    /* ---------- audio: tiny blips ---------- */
+    var AC = null;
+    function blip(freq, dur, type, vol) {
+      try {
+        if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+        if (AC.state === "suspended") AC.resume();
+        var o = AC.createOscillator(), g = AC.createGain();
+        o.type = type || "square"; o.frequency.value = freq;
+        g.gain.value = vol || 0.045;
+        g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + (dur || 0.08));
+        o.connect(g); g.connect(AC.destination);
+        o.start(); o.stop(AC.currentTime + (dur || 0.08));
+      } catch (e) { /* audio is a bonus, never a blocker */ }
+    }
+    var sfx = {
+      chop: function () { blip(140, 0.06, "square", 0.06); },
+      pickup: function () { blip(660, 0.07, "square", 0.04); setTimeout(function () { blip(880, 0.08, "square", 0.04); }, 60); },
+      eat: function () { blip(320, 0.09, "triangle", 0.06); },
+      craft: function () { blip(520, 0.07, "square", 0.05); setTimeout(function () { blip(780, 0.09, "square", 0.05); }, 70); },
+      splash: function () { blip(980, 0.12, "sine", 0.07); },
+      hurt: function () { blip(110, 0.15, "sawtooth", 0.07); },
+      bite: function () { blip(200, 0.1, "sawtooth", 0.05); }
+    };
+
+    /* ---------- interaction ---------- */
+    function canPlace(x, y) {
+      return inB(x, y) && !water[y][x] && !objects[key(x, y)] && !crops[key(x, y)] && !fires[key(x, y)]
+        && !(S.tentAt && S.tentAt.x === x && S.tentAt.y === y)
+        && !(S.cabinAt && x >= S.cabinAt.x && x < S.cabinAt.x + 3 && y >= S.cabinAt.y && y < S.cabinAt.y + 2);
+    }
+    function doSwing() {
+      if (S.swingCD > 0 || S.fish) return;
+      S.swingCD = S.axe ? 0.26 : 0.38;
+      S.swingT = 0.18;
+      S.energy = Math.max(0, S.energy - 1.2);
+      var f = facedTile();
+      if (!inB(f.x, f.y)) return;
+      var o = objects[key(f.x, f.y)];
+      var dmg = S.axe ? 2 : 1;
+      if (o && (o.type === "tree" || o.type === "rock" || o.type === "stump")) {
+        o.hp -= dmg; sfx.chop();
+        burst(f.x * TS + 8, f.y * TS + 6, o.type === "rock" ? "#a9adb3" : "#8a5a30", 5);
+        if (o.hp <= 0) {
+          if (o.type === "tree") {
+            removeObj(o); placeObj(f.x, f.y, "stump");
+            addInv("wood", 3); S.stats.trees++; checkGoal("wood5", S.inv.wood >= 5 || S.stats.trees >= 2);
+            burst(f.x * TS + 8, f.y * TS + 4, "#57a047", 10);
+          } else if (o.type === "rock") {
+            removeObj(o); addInv("stone", 3); if (Math.random() < 0.3) addInv("stone", 1);
+          } else { removeObj(o); addInv("wood", 1); }
+        }
+        return;
+      }
+      /* wolves in range? */
+      for (var i = 0; i < wolves.length; i++) {
+        var w = wolves[i];
+        if (Math.abs(w.x - (f.x * TS + 8)) < 22 && Math.abs(w.y - (f.y * TS + 8)) < 22) {
+          w.hp -= dmg; w.flash = 0.15; sfx.bite();
+          w.x += (w.x > S.px ? 14 : -14);
+          if (w.hp <= 0) { wolves.splice(i, 1); addInv("meatRaw", 2); toast("The wolf drops. +2 Raw meat", "good"); burst(w.x, w.y, "#6d7278", 10); }
+          return;
+        }
+      }
+    }
+    function doInteract() {
+      if (!S.running || S.over) return;
+      var f = facedTile();
+      if (!inB(f.x, f.y)) return;
+      var k = key(f.x, f.y);
+      /* fishing state machine first */
+      if (S.fish) { fishReel(); return; }
+      /* campfire: cook, else refuel */
+      if (fires[k]) {
+        var fr = fires[k];
+        if (S.inv.fishRaw > 0) { S.inv.fishRaw--; S.inv.fishCooked++; S.stats.cooked++; toast("Cooked a fish", "good"); sfx.craft(); checkGoal("cook", true); }
+        else if (S.inv.meatRaw > 0) { S.inv.meatRaw--; S.inv.meatCooked++; S.stats.cooked++; toast("Cooked meat", "good"); sfx.craft(); checkGoal("cook", true); }
+        else if (S.inv.wood > 0) { S.inv.wood--; fr.fuel = Math.min(100, fr.fuel + 40); toast("Fed the fire"); }
+        else toast("Nothing to cook, no wood to burn", "bad");
+        updateHUD(); return;
+      }
+      /* sleep spots */
+      if (S.tentAt && f.x === S.tentAt.x && f.y === S.tentAt.y + 1) { trySleep("tent"); return; }
+      if (S.cabinAt && f.x >= S.cabinAt.x && f.x < S.cabinAt.x + 3 && f.y === S.cabinAt.y + 1) { trySleep("cabin"); return; }
+      var nearFire = null;
+      for (var fk in fires) if (fires[fk].fuel > 0 && distTiles(f.x, f.y, fires[fk].x, fires[fk].y) <= 1.6) nearFire = fires[fk];
+      /* water: fishing */
+      if (water[f.y][f.x]) {
+        if (!S.rod) { toast("You need a fishing rod. Craft one.", "bad"); return; }
+        if (S.energy < 4) { toast("Too tired to fish", "bad"); return; }
+        S.fish = { phase: "wait", t: 1.4 + Math.random() * 3.2, tx: f.x, ty: f.y };
+        toast("Cast out. Wait for the splash...");
+        return;
+      }
+      /* crop harvest */
+      if (crops[k]) {
+        var c = crops[k];
+        if (c.stage >= 2) {
+          delete crops[k]; solid[f.y][f.x] = false;
+          addInv("potato", 2); if (Math.random() < 0.5) addInv("seed", 1);
+          sfx.pickup();
+        } else toast("Still growing. Crops grow overnight.", "bad");
+        return;
+      }
+      var o = objects[k];
+      if (o) {
+        if (o.type === "bush") {
+          if (o.berries) { o.berries = false; addInv("berry", 2); sfx.pickup(); if (Math.random() < 0.25) addInv("seed", 1); }
+          else { addInv("fiber", 1); toast("Stripped fiber from the bare bush"); }
+          return;
+        }
+        if (o.type === "tuft") { removeObj(o); addInv("fiber", 1); if (Math.random() < 0.4) addInv("seed", 1); sfx.pickup(); return; }
+        if (o.type === "flower") { removeObj(o); toast("Pretty. Useless, but pretty."); return; }
+        doSwing(); return; /* trees, rocks, stumps */
+      }
+      /* empty grass: sleep by fire, or plant */
+      if (nearFire && isNight()) { trySleep("fire"); return; }
+      if (!water[f.y][f.x]) {
+        if (S.inv.seed > 0) {
+          S.inv.seed--; crops[k] = { x: f.x, y: f.y, stage: 0, prog: 0 };
+          S.stats.planted++; toast("Planted a seed"); sfx.pickup(); checkGoal("plant", true);
+        } else toast("No seeds. Strip grass tufts and berry bushes to find some.", "bad");
+        updateHUD(); return;
+      }
+    }
+    function fishReel() {
+      var fs = S.fish;
+      if (fs.phase === "bite") {
+        S.fish = null; S.stats.fish++;
+        addInv("fishRaw", 1); sfx.splash(); toast("Caught a fish!", "good");
+        checkGoal("fish", true);
+        burst(fs.tx * TS + 8, fs.ty * TS + 8, "#a8cede", 8);
+      } else {
+        S.fish = null; toast("Reeled in too early. The fish scatter.", "bad");
+      }
+      updateHUD();
+    }
+    function isNight() { return S.mins >= 19 * 60 || S.mins < 5.5 * 60; }
+    function trySleep(kind) {
+      if (!isNight() && S.energy > 35) { toast("Too early and too restless to sleep", "bad"); return; }
+      var fade = document.getElementById("fade");
+      fade.style.opacity = "1";
+      setTimeout(function () {
+        /* overnight simulation */
+        S.day++; S.mins = 6 * 60;
+        S.hunger = Math.max(4, S.hunger - 17 * diff.drain);
+        S.energy = 100;
+        if (kind === "fire") {
+          S.hp = Math.max(1, S.hp - 8 * diff.cold);
+          toast("A rough night by a dying fire. You wake up stiff and cold.", "bad");
+        } else toast("Day " + S.day + ". You wake up alive.", "good");
+        for (var ck in crops) { var c = crops[ck]; c.prog += S.rain ? 2 : 1; if (c.prog >= 1 && c.stage < 2) { c.stage++; c.prog = 0; } }
+        for (var ok in objects) if (objects[ok].type === "bush") objects[ok].berries = true;
+        for (var fk in fires) fires[fk].fuel = 0;
+        wolves = []; S.wolvesSpawned = false;
+        pickWeather();
+        if (S.rain) toast("Rain today. Crops love it, fires hate it, you will be colder.");
+        fade.style.opacity = "0";
+        updateHUD(true);
+      }, 750);
+    }
+    function eatBest() {
+      if (!S.running || S.over) return;
+      var menu = [
+        ["meatCooked", 50], ["fishCooked", 42], ["potato", 32], ["fishRaw", 16], ["meatRaw", 14], ["berry", 12]
+      ];
+      for (var i = 0; i < menu.length; i++) {
+        var item = menu[i][0];
+        if (S.inv[item] > 0) {
+          S.inv[item]--;
+          S.hunger = Math.min(100, S.hunger + menu[i][1]);
+          S.energy = Math.min(100, S.energy + 4);
+          sfx.eat();
+          if ((item === "fishRaw" || item === "meatRaw") && Math.random() < 0.25) {
+            S.hp = Math.max(1, S.hp - 6);
+            toast("That sat badly. Raw food is a gamble.", "bad");
+          } else toast("Ate. Hunger eased.", "good");
+          updateHUD(); return;
+        }
+      }
+      toast("Nothing to eat. Berries, fish, or your crops.", "bad");
+    }
+
+    /* ---------- crafting ---------- */
+    var RECIPES = [
+      { id: "axe", name: "Stone Axe", cost: { wood: 3, stone: 2 }, desc: "Chops and mines twice as fast. Fells wolves.", kind: "tool" },
+      { id: "rod", name: "Fishing Rod", cost: { wood: 4, fiber: 2 }, desc: "Fish the pond. Your best steady food.", kind: "tool" },
+      { id: "fire", name: "Campfire", cost: { wood: 5, stone: 3 }, desc: "Warmth, cooking, and a wall of light wolves hate.", kind: "build" },
+      { id: "tent", name: "Tent", cost: { wood: 8, fiber: 5 }, desc: "Sleep warm anywhere. Placed on the tile you face.", kind: "build" },
+      { id: "cabin", name: "Cabin", cost: { wood: 40, stone: 20 }, desc: "A real home, 3 tiles wide. Build it and you have thrived.", kind: "build" }
+    ];
+    function costText(cost) {
+      var parts = [];
+      for (var item in cost) {
+        var have = S.inv[item];
+        var nm = { wood: "wood", stone: "stone", fiber: "fiber" }[item] || item;
+        parts.push((have < cost[item] ? '<span class="lack">' : "<span>") + cost[item] + " " + nm + "</span>");
+      }
+      return parts.join(" · ");
+    }
+    function canAfford(cost) { for (var i in cost) if (S.inv[i] < cost[i]) return false; return true; }
+    function renderRecipes() {
+      var list = document.getElementById("recipeList");
+      list.innerHTML = "";
+      RECIPES.forEach(function (r) {
+        var row = document.createElement("div"); row.className = "recipe";
+        var owned = (r.id === "axe" && S.axe) || (r.id === "rod" && S.rod) ||
+                    (r.id === "tent" && S.tentAt) || (r.id === "cabin" && S.cabinAt);
+        var info = document.createElement("div"); info.className = "info";
+        info.innerHTML = '<div class="name">' + r.name + '</div><div class="cost">' + costText(r.cost) + '</div><div class="cost">' + r.desc + "</div>";
+        row.appendChild(info);
+        if (owned) {
+          var tag = document.createElement("span"); tag.className = "owned"; tag.textContent = "Built";
+          row.appendChild(tag);
+        } else {
+          var b = document.createElement("button"); b.type = "button"; b.textContent = "Craft";
+          b.disabled = !canAfford(r.cost);
+          b.addEventListener("click", function () { craft(r); });
+          row.appendChild(b);
+        }
+        list.appendChild(row);
+      });
+    }
+    function craft(r) {
+      if (!canAfford(r.cost)) return;
+      var f = facedTile();
+      if (r.kind === "build") {
+        if (r.id === "cabin") {
+          for (var dx = 0; dx < 3; dx++) for (var dy = 0; dy < 2; dy++)
+            if (!canPlace(f.x + dx, f.y + dy)) { toast("No room there. Face a clear 3 by 2 patch of grass.", "bad"); return; }
+        } else if (r.id === "tent") {
+          if (!canPlace(f.x, f.y) || !canPlace(f.x + 1, f.y)) { toast("No room there. Face two clear grass tiles.", "bad"); return; }
+        } else if (!canPlace(f.x, f.y)) { toast("That tile is blocked. Face open grass.", "bad"); return; }
+      }
+      for (var item in r.cost) S.inv[item] -= r.cost[item];
+      sfx.craft();
+      if (r.id === "axe") { S.axe = true; toast("Stone axe crafted. Trees beware.", "good"); checkGoal("axe", true); }
+      if (r.id === "rod") { S.rod = true; toast("Fishing rod crafted. Find the pond.", "good"); }
+      if (r.id === "fire") {
+        fires[key(f.x, f.y)] = { x: f.x, y: f.y, fuel: 70 };
+        solid[f.y][f.x] = true; S.stats.built++;
+        toast("Campfire lit. Stay close after dark.", "good"); checkGoal("fire", true);
+      }
+      if (r.id === "tent") {
+        S.tentAt = { x: f.x, y: f.y };
+        solid[f.y][f.x] = true; solid[f.y][f.x + 1] = true; S.stats.built++;
+        toast("Tent pitched. Interact with its front to sleep.", "good"); checkGoal("tent", true);
+      }
+      if (r.id === "cabin") {
+        S.cabinAt = { x: f.x, y: f.y };
+        for (var cx = 0; cx < 3; cx++) for (var cy = 0; cy < 2; cy++) solid[f.y + cy][f.x + cx] = true;
+        S.stats.built++;
+        if (!S.won) { S.won = true; toast("A CABIN. Roof, walls, a door. You are not surviving anymore. You are thriving.", "good"); blip(523, 0.15, "square", 0.06); setTimeout(function () { blip(659, 0.15, "square", 0.06); }, 140); setTimeout(function () { blip(784, 0.25, "square", 0.06); }, 280); }
+        checkGoal("cabin", true);
+      }
+      renderRecipes(); renderGoals(); updateHUD();
+    }
+    var GOALS = [
+      ["wood5", "Gather wood from the trees"],
+      ["axe", "Craft a stone axe"],
+      ["fire", "Build a campfire before dark"],
+      ["fish", "Catch a fish"],
+      ["plant", "Plant a crop (face grass, press Act)"],
+      ["tent", "Pitch a tent"],
+      ["cook", "Cook a meal at a fire"],
+      ["cabin", "Build the cabin: you have thrived"]
+    ];
+    function checkGoal(id, done) {
+      if (done && !S.goals[id]) { S.goals[id] = true; renderGoals(); }
+    }
+    function renderGoals() {
+      var list = document.getElementById("goalList");
+      list.innerHTML = "";
+      GOALS.forEach(function (g) {
+        var d = document.createElement("div");
+        d.className = "goal" + (S && S.goals[g[0]] ? " done" : "");
+        d.textContent = g[1];
+        list.appendChild(d);
+      });
+    }
+
+    /* ---------- HUD ---------- */
+    var INV_ORDER = [["wood", "Wood", "#a97c46"], ["stone", "Stone", "#a9adb3"], ["fiber", "Fiber", "#c9b458"], ["berry", "Berry", "#d94f6a"], ["seed", "Seed", "#e8d98a"], ["fishRaw", "Fish", "#7fb3c9"], ["fishCooked", "Cooked fish", "#e8a33d"], ["meatRaw", "Meat", "#c9553d"], ["meatCooked", "Cooked meat", "#8a5a30"], ["potato", "Potato", "#c98d4b"]];
+    function fmtTime(mins) {
+      var h = Math.floor(mins / 60) % 24, m = Math.floor(mins % 60);
+      var ap = h >= 12 ? "PM" : "AM";
+      var hh = h % 12; if (hh === 0) hh = 12;
+      return hh + ":" + (m < 10 ? "0" : "") + m + " " + ap;
+    }
+    function updateHUD(force) {
+      if (!S) return;
+      document.getElementById("hudClock").innerHTML =
+        "Day " + S.day + ' <span class="sub">· ' + fmtTime(S.mins) + (S.rain ? " · Rain" : "") + '</span><span class="sub diffLab"> · ' + diff.label + "</span>";
+      function setBar(id, v) { document.querySelector("#" + id + " .fill").style.width = Math.max(0, Math.min(100, v)) + "%"; }
+      setBar("barHp", S.hp); setBar("barFood", S.hunger); setBar("barWarm", S.warmth); setBar("barEnergy", S.energy);
+      var html = "";
+      INV_ORDER.forEach(function (e) {
+        if (S.inv[e[0]] > 0) html += '<span class="chip"><span class="sw" style="background:' + e[2] + '"></span>' + e[1] + " <b>" + S.inv[e[0]] + "</b></span>";
+      });
+      if (S.axe) html += '<span class="chip">Axe</span>';
+      if (S.rod) html += '<span class="chip">Rod</span>';
+      if (!html) html = '<span class="chip">Pockets empty</span>';
+      document.getElementById("hudInv").innerHTML = html;
+      document.getElementById("hudInvMini").innerHTML = html;
+      var warn = document.getElementById("warn");
+      var w = [];
+      if (S.warmth < 32) w.push("FREEZING: get to a fire or shelter");
+      else if (S.hunger <= 0) w.push("STARVING: eat something, anything");
+      else if (S.hp < 30) w.push("You are badly hurt");
+      else if (isNight() && S.warmth < 55) w.push("The night is cold. Stay near firelight.");
+      warn.textContent = w[0] || "";
+      warn.style.display = w.length ? "block" : "none";
+      if (document.getElementById("craftSheet").classList.contains("open")) renderRecipes();
+      updatePrompt();
+    }
+    function updatePrompt() {
+      var el = document.getElementById("prompt");
+      if (!S || !S.running || S.over) { el.style.display = "none"; return; }
+      var txt = "";
+      var f = facedTile();
+      if (S.fish) txt = S.fish.phase === "bite" ? "NOW! Press Act!" : "Waiting for a bite...";
+      else if (inB(f.x, f.y)) {
+        var k = key(f.x, f.y);
+        if (fires[k]) txt = S.inv.fishRaw > 0 || S.inv.meatRaw > 0 ? "Act: Cook food" : "Act: Feed fire (1 wood)";
+        else if (water[f.y][f.x]) txt = S.rod ? "Act: Cast line" : "You need a fishing rod";
+        else if (crops[k]) txt = crops[k].stage >= 2 ? "Act: Harvest potatoes" : "Growing...";
+        else if (S.tentAt && f.x === S.tentAt.x && f.y === S.tentAt.y + 1) txt = "Act: Sleep in tent";
+        else if (S.cabinAt && f.x >= S.cabinAt.x && f.x < S.cabinAt.x + 3 && f.y === S.cabinAt.y + 1) txt = "Act: Sleep in cabin";
+        else {
+          var o = objects[k];
+          if (o) {
+            if (o.type === "tree") txt = "Act: Chop tree";
+            else if (o.type === "rock") txt = "Act: Mine rock";
+            else if (o.type === "stump") txt = "Act: Clear stump";
+            else if (o.type === "bush") txt = o.berries ? "Act: Pick berries" : "Act: Strip fiber";
+            else if (o.type === "tuft") txt = "Act: Gather grass (fiber, seeds)";
+            else if (o.type === "flower") txt = "Act: Admire flower";
+          } else if (S.inv.seed > 0) txt = "Act: Plant seed";
+        }
+      }
+      el.textContent = txt;
+      el.style.display = txt ? "block" : "none";
+    }
+
+    /* ---------- simulation ---------- */
+    function darkness() {
+      var m = S.mins;
+      if (m >= 6 * 60 && m < 17.5 * 60) return 0;
+      if (m >= 19.5 * 60 || m < 4.5 * 60) return 0.8;
+      if (m >= 17.5 * 60) return (m - 17.5 * 60) / 120 * 0.8;
+      return (1 - (m - 4.5 * 60) / 90) * 0.8;
+    }
+    function ambientWarmth() {
+      var m = S.mins, base;
+      if (m >= 8 * 60 && m < 17 * 60) base = 78;
+      else if (m >= 19.5 * 60 || m < 5 * 60) base = 6;
+      else if (m >= 17 * 60) base = 78 - (m - 17 * 60) / 150 * 72;
+      else base = 6 + (m - 5 * 60) / 180 * 72;
+      if (S.rain) base -= 12;
+      var ptx = tileOf(S.px), pty = tileOf(S.py);
+      for (var fk in fires) {
+        var fr = fires[fk];
+        if (fr.fuel > 0 && distTiles(ptx, pty, fr.x, fr.y) <= 2.6) base += 62;
+      }
+      if (S.tentAt && distTiles(ptx, pty, S.tentAt.x + 0.5, S.tentAt.y + 0.5) <= 1.6) base += 40;
+      if (S.cabinAt && ptx >= S.cabinAt.x - 1 && ptx <= S.cabinAt.x + 3 && pty >= S.cabinAt.y - 1 && pty <= S.cabinAt.y + 2) base += 48;
+      return Math.min(100, base);
+    }
+    function nearFireLight(x, y) {
+      for (var fk in fires) {
+        var fr = fires[fk];
+        if (fr.fuel > 0 && distTiles(tileOf(x), tileOf(y), fr.x, fr.y) <= 3.1) return true;
+      }
+      return false;
+    }
+    function hurtPlayer(dmg, cause) {
+      S.hp -= dmg; S.hurtT = 0.25; sfx.hurt();
+      if (S.hp <= 0 && !S.over) gameOver(cause);
+    }
+    function spawnWolves() {
+      var want = diff.wolfMax;
+      if (Math.random() > diff.wolfChance) want = Math.max(0, want - 1);
+      for (var i = 0; i < want; i++) {
+        var side = Math.floor(Math.random() * 4), x, y;
+        if (side === 0) { x = 30; y = Math.random() * 480; }
+        else if (side === 1) { x = 610; y = Math.random() * 480; }
+        else if (side === 2) { x = Math.random() * 640; y = 30; }
+        else { x = Math.random() * 640; y = 450; }
+        wolves.push({ x: x, y: y, hp: 4, biteCD: 0, flash: 0, wob: Math.random() * 6 });
+      }
+      if (want > 0) toast("Wolves are hunting tonight. Stay in the firelight.", "bad");
+    }
+    function update(dt) {
+      if (!S || !S.running || S.over) return;
+      /* clock: 300 real seconds per day */
+      S.mins += dt * 4.8;
+      if (S.mins >= 24 * 60) {
+        S.mins -= 24 * 60; S.day++;
+        for (var ck in crops) { var c0 = crops[ck]; c0.prog += 1; if (c0.prog >= 1 && c0.stage < 2) { c0.stage++; c0.prog = 0; } }
+        for (var ok in objects) if (objects[ok].type === "bush") objects[ok].berries = true;
+        pickWeather();
+        toast("Day " + S.day + (S.rain ? ". Rain rolls in." : ". You made it through the night."), "good");
+      }
+      S.night = isNight();
+      if (S.mins >= 21 * 60 && !S.wolvesSpawned) { S.wolvesSpawned = true; spawnWolves(); }
+      if (S.mins >= 5 * 60 && S.mins < 6 * 60) S.wolvesSpawned = false;
+      if (!S.night && wolves.length) wolves = [];
+
+      /* movement */
+      var mx = 0, my = 0;
+      if (keys.ArrowLeft || keys.KeyA || touch.left) mx -= 1;
+      if (keys.ArrowRight || keys.KeyD || touch.right) mx += 1;
+      if (keys.ArrowUp || keys.KeyW || touch.up) my -= 1;
+      if (keys.ArrowDown || keys.KeyS || touch.down) my += 1;
+      S.moving = !!(mx || my);
+      if (S.moving && !S.fish) {
+        if (Math.abs(mx) > Math.abs(my)) S.dir = mx < 0 ? "left" : "right";
+        else if (my) S.dir = my < 0 ? "up" : "down";
+        var sp = S.energy <= 0 ? 34 : 64;
+        var len = Math.sqrt(mx * mx + my * my);
+        var nx = S.px + mx / len * sp * dt, ny = S.py + my / len * sp * dt;
+        if (!hitsSolid(nx, S.py)) S.px = nx;
+        if (!hitsSolid(S.px, ny)) S.py = ny;
+        S.energy = Math.max(0, S.energy - dt * 1.1);
+      } else if (!S.fish && S.hunger > 25) {
+        S.energy = Math.min(100, S.energy + dt * 3.2);
+      }
+      if (S.swingCD > 0) S.swingCD -= dt;
+      if (S.swingT > 0) S.swingT -= dt;
+      if (S.hurtT > 0) S.hurtT -= dt;
+
+      /* fishing timer */
+      if (S.fish) {
+        S.fish.t -= dt;
+        if (S.fish.phase === "wait" && S.fish.t <= 0) {
+          S.fish.phase = "bite"; S.fish.t = 0.95; sfx.splash();
+          burst(S.fish.tx * TS + 8, S.fish.ty * TS + 8, "#dff2ff", 6);
+        } else if (S.fish.phase === "bite" && S.fish.t <= 0) {
+          S.fish = null; toast("Too slow, it got away.", "bad");
+        }
+      }
+
+      /* fires */
+      for (var fk in fires) {
+        var fr = fires[fk];
+        if (fr.fuel > 0) fr.fuel = Math.max(0, fr.fuel - dt * (S.rain ? 1.7 : 1.05));
+      }
+
+      /* survival meters */
+      var d = diff.drain;
+      S.hunger = Math.max(0, S.hunger - dt * 0.21 * d * (S.moving ? 1.35 : 1));
+      var target = ambientWarmth();
+      S.warmth += (target - S.warmth) * Math.min(1, dt * 1.6);
+      if (S.warmth < 32) hurtPlayer(dt * 0.55 * diff.cold, "cold");
+      if (S.hunger <= 0) hurtPlayer(dt * 0.42, "hunger");
+      if (S.hp > 0 && S.hunger > 45 && S.warmth > 50 && S.energy > 15)
+        S.hp = Math.min(100, S.hp + dt * 0.3);
+
+      /* wolves */
+      for (var i = wolves.length - 1; i >= 0; i--) {
+        var w = wolves[i];
+        w.wob += dt * 6;
+        if (w.flash > 0) w.flash -= dt;
+        if (w.biteCD > 0) w.biteCD -= dt;
+        var dxp = S.px - w.x, dyp = S.py - w.y;
+        var dd = Math.sqrt(dxp * dxp + dyp * dyp) || 1;
+        var repelled = nearFireLight(w.x + dxp / dd * 10, w.y + dyp / dd * 10) && dd > 30;
+        if (!repelled && dd > 15) {
+          var wsp = 54;
+          w.x += dxp / dd * wsp * dt; w.y += dyp / dd * wsp * dt;
+        } else if (repelled) {
+          w.x -= dxp / dd * 22 * dt; w.y -= dyp / dd * 22 * dt;
+        }
+        if (dd < 17 && w.biteCD <= 0) {
+          w.biteCD = 1.25;
+          hurtPlayer(7, "wolf");
+          toast("The wolf tears at you!", "bad");
+          if (S.over) return;
+        }
+      }
+      /* rabbits: daytime charm, flee the player */
+      rabbits.forEach(function (r) {
+        r.t -= dt;
+        if (r.t <= 0) { r.t = 1 + Math.random() * 3; r.dx = (Math.random() - 0.5) * 22; r.dy = (Math.random() - 0.5) * 22; }
+        var flee = Math.sqrt((r.x - S.px) * (r.x - S.px) + (r.y - S.py) * (r.y - S.py));
+        if (flee < 42) { r.dx = (r.x - S.px) * 2.2; r.dy = (r.y - S.py) * 2.2; }
+        var rx = r.x + r.dx * dt, ry = r.y + r.dy * dt;
+        if (inB(tileOf(rx), tileOf(ry)) && !solid[tileOf(ry)][tileOf(rx)]) { r.x = rx; r.y = ry; }
+      });
+      /* particles */
+      for (var p = particles.length - 1; p >= 0; p--) {
+        var pt = particles[p]; pt.t += dt;
+        if (pt.t > pt.life) { particles.splice(p, 1); continue; }
+        pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vy += 130 * dt;
+      }
+      updateHUD();
+    }
+    function hitsSolid(px, py) {
+      var r = 5;
+      var pts = [[px - r, py - r], [px + r, py - r], [px - r, py + 2], [px + r, py + 2]];
+      for (var i = 0; i < pts.length; i++) {
+        var tx = tileOf(pts[i][0]), ty = tileOf(pts[i][1]);
+        if (!inB(tx, ty)) return true;
+        if (solid[ty][tx]) return true;
+      }
+      return false;
+    }
+    function gameOver(cause) {
+      S.over = true; S.running = false;
+      document.body.classList.remove("playing");
+      var texts = {
+        cold: "The cold took you in the night. Out here, a fire is not a comfort. It is the whole plan.",
+        hunger: "Hunger hollowed you out until there was nothing left to stand on. The forest keeps what it catches.",
+        wolf: "The wolves were faster, and the dark was on their side. Firelight was the only wall that mattered."
+      };
+      document.getElementById("overText").textContent = texts[cause] || texts.cold;
+      document.getElementById("overStats").textContent =
+        "Survived " + S.day + (S.day === 1 ? " day" : " days") + " on " + diff.label +
+        " · " + S.stats.trees + " trees felled · " + S.stats.fish + " fish caught · " +
+        S.stats.planted + " crops planted · " + S.stats.built + " structures built" +
+        (S.won ? " · and you built a cabin before the end" : "");
+      setTimeout(function () { document.getElementById("overOverlay").style.display = "flex"; }, 650);
+    }
+
+    /* ---------- rendering ---------- */
+    var lightCanvas = document.createElement("canvas");
+    lightCanvas.width = 640; lightCanvas.height = 480;
+    var lctx = lightCanvas.getContext("2d");
+    var frame = 0;
+    function draw() {
+      frame++;
+      var x, y;
+      /* ground */
+      for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
+        if (water[y][x]) {
+          ctx.fillStyle = "#2e6ea8";
+          ctx.fillRect(x * TS, y * TS, TS, TS);
+          ctx.drawImage((frame >> 4) % 2 ? waterA : waterB, x * TS, y * TS);
+        } else {
+          var g = ground[y][x];
+          ctx.fillStyle = g === 0 ? "#4a7a38" : g === 1 ? "#527f3d" : g === 2 ? "#477539" : g === 3 ? "#55853f" : "#4e7f3a";
+          ctx.fillRect(x * TS, y * TS, TS, TS);
+          if (g === 4) { ctx.fillStyle = "#5d8f47"; ctx.fillRect(x * TS + 3, y * TS + 9, 2, 2); ctx.fillRect(x * TS + 11, y * TS + 4, 2, 2); }
+        }
+      }
+      /* shore shading */
+      ctx.fillStyle = "rgba(214,188,130,.55)";
+      for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
+        if (!water[y][x]) continue;
+        if (y > 0 && !water[y - 1][x]) ctx.fillRect(x * TS, y * TS, TS, 2);
+        if (y < MH - 1 && !water[y + 1][x]) ctx.fillRect(x * TS, y * TS + 14, TS, 2);
+        if (x > 0 && !water[y][x - 1]) ctx.fillRect(x * TS, y * TS, 2, TS);
+        if (x < MW - 1 && !water[y][x + 1]) ctx.fillRect(x * TS + 14, y * TS, 2, TS);
+      }
+      /* tilled soil under crops */
+      for (var ck in crops) {
+        var c = crops[ck];
+        ctx.fillStyle = "#5e4630"; ctx.fillRect(c.x * TS + 1, c.y * TS + 1, TS - 2, TS - 2);
+        ctx.fillStyle = "#4c3823"; ctx.fillRect(c.x * TS + 1, c.y * TS + 5, TS - 2, 2); ctx.fillRect(c.x * TS + 1, c.y * TS + 11, TS - 2, 2);
+        ctx.drawImage([SPR.crop0, SPR.crop1, SPR.crop2][c.stage], c.x * TS, c.y * TS + 3);
+      }
+      /* tent + cabin */
+      if (S && S.tentAt) ctx.drawImage(SPR.tent, S.tentAt.x * TS - 8, S.tentAt.y * TS - 10);
+      if (S && S.cabinAt) ctx.drawImage(SPR.cabin, S.cabinAt.x * TS - 8, S.cabinAt.y * TS - 14);
+      /* objects sorted with actors by y */
+      var drawables = [];
+      for (var ok in objects) drawables.push({ y: objects[ok].y * TS + 14, o: objects[ok] });
+      if (S) {
+        drawables.push({ y: S.py + 6, player: true });
+        wolves.forEach(function (w) { drawables.push({ y: w.y + 6, wolf: w }); });
+        if (!isNight()) rabbits.forEach(function (r) { drawables.push({ y: r.y + 4, rabbit: r }); });
+        for (var fk2 in fires) drawables.push({ y: fires[fk2].y * TS + 12, fire: fires[fk2] });
+      }
+      drawables.sort(function (a, b) { return a.y - b.y; });
+      drawables.forEach(function (d) {
+        if (d.o) {
+          var o = d.o;
+          if (o.type === "tree") ctx.drawImage(o.pine ? SPR.pine : SPR.oak, o.x * TS - (o.pine ? 0 : 1), o.y * TS - 8);
+          else if (o.type === "rock") ctx.drawImage(SPR.rock, o.x * TS, o.y * TS + 2);
+          else if (o.type === "bush") ctx.drawImage(o.berries ? SPR.bushBerry : SPR.bushPlain, o.x * TS, o.y * TS + 3);
+          else if (o.type === "stump") ctx.drawImage(SPR.stump, o.x * TS, o.y * TS + 1);
+          else if (o.type === "tuft") ctx.drawImage(SPR.tuft, o.x * TS, o.y * TS + 4);
+          else if (o.type === "flower") ctx.drawImage(SPR.flower, o.x * TS, o.y * TS + 4);
+        } else if (d.fire) {
+          var fr = d.fire;
+          if (fr.fuel > 0) ctx.drawImage((frame >> 3) % 2 ? SPR.fire0 : SPR.fire1, fr.x * TS, fr.y * TS + 2);
+          else ctx.drawImage(SPR.fireOut, fr.x * TS, fr.y * TS + 2);
+        } else if (d.wolf) {
+          var w = d.wolf;
+          var hop = Math.sin(w.wob) * 1.5;
+          ctx.globalAlpha = w.flash > 0 ? 0.55 : 1;
+          ctx.drawImage(w.x > S.px ? SPR.wolfL : SPR.wolf, w.x - 24, w.y - 8 + hop);
+          ctx.globalAlpha = 1;
+          /* eyes in the dark */
+          if (darkness() > 0.25) {
+            ctx.fillStyle = "#ff5340";
+            ctx.fillRect(w.x + (w.x > S.px ? -20 : 18), w.y - 3 + hop, 2, 2);
+          }
+        } else if (d.rabbit) {
+          ctx.drawImage(SPR.rabbit, d.rabbit.x - 8, d.rabbit.y - 6);
+        } else if (d.player) {
+          drawPlayer();
+        }
+      });
+      /* fishing bobber */
+      if (S && S.fish) {
+        var bobY = S.fish.ty * TS + 6 + Math.sin(frame * 0.3) * 1.5;
+        ctx.strokeStyle = "rgba(240,240,230,.75)";
+        ctx.beginPath();
+        ctx.moveTo(S.px + (S.dir === "left" ? -6 : S.dir === "right" ? 6 : 0), S.py - 10);
+        ctx.lineTo(S.fish.tx * TS + 8, bobY);
+        ctx.stroke();
+        ctx.drawImage(SPR.bobber, S.fish.tx * TS + 5, bobY - 2);
+        if (S.fish.phase === "bite") {
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 14px monospace";
+          ctx.fillText("!", S.fish.tx * TS + 6, S.fish.ty * TS - 2);
+        }
+      }
+      /* particles */
+      particles.forEach(function (p) {
+        ctx.globalAlpha = 1 - p.t / p.life;
+        ctx.fillStyle = p.c;
+        ctx.fillRect(p.x, p.y, 3, 3);
+      });
+      ctx.globalAlpha = 1;
+      /* hurt flash */
+      if (S && S.hurtT > 0) {
+        ctx.fillStyle = "rgba(200,40,20," + (S.hurtT * 0.9) + ")";
+        ctx.fillRect(0, 0, 640, 480);
+      }
+      /* rain */
+      if (S && S.rain) {
+        ctx.strokeStyle = "rgba(180,210,240,.5)";
+        ctx.beginPath();
+        for (var ri = 0; ri < 46; ri++) {
+          var rx = (ri * 97 + frame * 9) % 660 - 10, ry = (ri * 61 + frame * 22) % 480;
+          ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 9);
+        }
+        ctx.stroke();
+      }
+      /* night lighting */
+      var dk = S ? darkness() : 0;
+      if (dk > 0.02) {
+        lctx.clearRect(0, 0, 640, 480);
+        lctx.fillStyle = "rgba(7,10,38," + dk + ")";
+        lctx.fillRect(0, 0, 640, 480);
+        lctx.globalCompositeOperation = "destination-out";
+        function hole(x, y, r, a) {
+          var gr = lctx.createRadialGradient(x, y, 2, x, y, r);
+          gr.addColorStop(0, "rgba(0,0,0," + a + ")");
+          gr.addColorStop(1, "rgba(0,0,0,0)");
+          lctx.fillStyle = gr;
+          lctx.beginPath(); lctx.arc(x, y, r, 0, 7); lctx.fill();
+        }
+        if (S) hole(S.px, S.py, 44, 0.55);
+        for (var fk3 in fires) {
+          var f3 = fires[fk3];
+          if (f3.fuel > 0) hole(f3.x * TS + 8, f3.y * TS + 8, 30 + f3.fuel * 0.55 + Math.sin(frame * 0.2) * 4, 0.95);
+        }
+        if (S && S.cabinAt) hole(S.cabinAt.x * TS + 24, S.cabinAt.y * TS + 12, 30, 0.7);
+        lctx.globalCompositeOperation = "source-over";
+        ctx.drawImage(lightCanvas, 0, 0);
+        /* cold vignette */
+        if (S && S.warmth < 40) {
+          var vg = ctx.createRadialGradient(320, 240, 150, 320, 240, 360);
+          vg.addColorStop(0, "rgba(140,200,255,0)");
+          vg.addColorStop(1, "rgba(140,200,255," + (0.35 * (1 - S.warmth / 40)) + ")");
+          ctx.fillStyle = vg; ctx.fillRect(0, 0, 640, 480);
+        }
+      }
+    }
+    function drawPlayer() {
+      var spr = S.dir === "down" ? SPR.plDown : S.dir === "up" ? SPR.plUp : S.dir === "left" ? SPR.plSideL : SPR.plSide;
+      var bob = S.moving ? Math.abs(Math.sin(frame * 0.35)) * 1.6 : 0;
+      ctx.drawImage(spr, S.px - 8, S.py - 13 - bob);
+      if (S.swingT > 0) {
+        var tool = S.axe ? SPR.axe : null;
+        var ox = S.dir === "left" ? -13 : S.dir === "right" ? 5 : 3;
+        var oy = -8 + (0.18 - S.swingT) * 30;
+        if (tool) ctx.drawImage(tool, S.px + ox, S.py + oy);
+        ctx.strokeStyle = "rgba(255,255,255,.65)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        var cx = S.px + (S.dir === "left" ? -10 : S.dir === "right" ? 10 : 0);
+        var cy = S.py - 4 + (S.dir === "up" ? -8 : S.dir === "down" ? 8 : 0);
+        ctx.arc(cx, cy, 9, 0, 4.2);
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
+      if (S.rod && !S.axe) { /* rod shown when it is the only tool */ }
+    }
+
+    /* ---------- main loop ---------- */
+    var lastT = 0;
+    function loop(ts) {
+      requestAnimationFrame(loop);
+      var dt = Math.min(0.05, (ts - lastT) / 1000 || 0);
+      lastT = ts;
+      if (S && S.running) update(dt);
+      if (S) draw();
+    }
+    requestAnimationFrame(loop);
+
+    /* ---------- input ---------- */
+    var keys = {};
+    var touch = { up: false, down: false, left: false, right: false };
+    document.addEventListener("keydown", function (e) {
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].indexOf(e.code) >= 0) e.preventDefault();
+      keys[e.code] = true;
+      if (!S || !S.running) return;
+      if (e.code === "KeyE" || e.code === "Space") doInteract();
+      else if (e.code === "KeyF") eatBest();
+      else if (e.code === "KeyC") toggleSheet("craftSheet");
+      else if (e.code === "KeyG") toggleSheet("goalSheet");
+      else if (e.code === "KeyX") doSwing();
+    });
+    document.addEventListener("keyup", function (e) { keys[e.code] = false; });
+    /* holding E or Space also swings at trees: handled by interact fallthrough;
+       add a light auto-swing while action held near a tree */
+    setInterval(function () {
+      if (!S || !S.running || S.over) return;
+      if (keys.KeyE || keys.Space || touch.act) {
+        var f = facedTile();
+        var o = inB(f.x, f.y) ? objects[key(f.x, f.y)] : null;
+        if (o && (o.type === "tree" || o.type === "rock" || o.type === "stump")) doSwing();
+        else if (wolves.length) {
+          for (var i = 0; i < wolves.length; i++) {
+            var w = wolves[i];
+            if (Math.abs(w.x - S.px) < 26 && Math.abs(w.y - S.py) < 26) { doSwing(); break; }
+          }
+        }
+      }
+    }, 90);
+
+    function toggleSheet(id) {
+      var el = document.getElementById(id);
+      var other = document.getElementById(id === "craftSheet" ? "goalSheet" : "craftSheet");
+      other.classList.remove("open");
+      el.classList.toggle("open");
+      if (id === "craftSheet") renderRecipes();
+      if (id === "goalSheet") renderGoals();
+    }
+    /* touch controls */
+    if ("ontouchstart" in window) document.body.classList.add("touch");
+    function bindHold(id, prop) {
+      var el = document.getElementById(id);
+      var on = function (e) { e.preventDefault(); touch[prop] = true; };
+      var off = function (e) { e.preventDefault(); touch[prop] = false; };
+      el.addEventListener("touchstart", on, { passive: false });
+      el.addEventListener("touchend", off, { passive: false });
+      el.addEventListener("touchcancel", off, { passive: false });
+      el.addEventListener("mousedown", on); el.addEventListener("mouseup", off); el.addEventListener("mouseleave", off);
+    }
+    bindHold("dUp", "up"); bindHold("dDown", "down"); bindHold("dLeft", "left"); bindHold("dRight", "right");
+    var actEl = document.getElementById("actBtn");
+    actEl.addEventListener("touchstart", function (e) { e.preventDefault(); touch.act = true; doInteract(); }, { passive: false });
+    actEl.addEventListener("touchend", function (e) { e.preventDefault(); touch.act = false; }, { passive: false });
+    actEl.addEventListener("mousedown", function () { touch.act = true; doInteract(); });
+    actEl.addEventListener("mouseup", function () { touch.act = false; });
+
+    /* ---------- UI wiring ---------- */
+    var chosenDiff = "wild";
+    var diffBtns = document.querySelectorAll(".diff");
+    diffBtns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        diffBtns.forEach(function (x) { x.classList.remove("sel"); });
+        b.classList.add("sel");
+        chosenDiff = b.getAttribute("data-diff");
+      });
+    });
+    document.getElementById("btnStart").addEventListener("click", function () {
+      document.getElementById("startOverlay").style.display = "none";
+      document.getElementById("hud").style.display = "block";
+      document.body.classList.add("playing");
+      newGame(DIFFS[chosenDiff]);
+      toast("Day 1. Gather wood and stone before dark. The pond is south-west.", "good");
+      toggleHint();
+    });
+    function toggleHint() { /* first-time nudge toward goals */
+      setTimeout(function () { if (S && S.running && !S.goals.fire) toast("Tip: press C to craft. A fire before dark is life or death.", "good"); }, 9000);
+    }
+    document.getElementById("btnRetry").addEventListener("click", function () {
+      document.getElementById("overOverlay").style.display = "none";
+      document.body.classList.add("playing");
+      newGame(diff);
+      toast("Day 1 again. The forest gives second chances, not third ones.", "good");
+    });
+    document.getElementById("btnCraft").addEventListener("click", function () { toggleSheet("craftSheet"); });
+    document.getElementById("btnGoals").addEventListener("click", function () { toggleSheet("goalSheet"); });
+    document.getElementById("btnEat").addEventListener("click", eatBest);
+    document.getElementById("btnHelp").addEventListener("click", function () { document.getElementById("helpOverlay").style.display = "flex"; });
+    document.getElementById("btnCloseHelp").addEventListener("click", function () { document.getElementById("helpOverlay").style.display = "none"; });
+
+    /* draw a calm backdrop behind the start overlay */
+    genWorld();
+    S = null;
+    (function backdrop() {
+      /* render the world once with a dummy daylight state for the menu */
+      var fake = { mins: 10 * 60, rain: false, px: -999, py: -999, warmth: 100, hurtT: 0, fish: null, dir: "down", swingT: 0, axe: false, rod: false, tentAt: null, cabinAt: null, goals: {} };
+      var realS = S; S = fake;
+      draw();
+      S = realS;
+    })();
+    renderGoals();
+    </script>
+  </body>
+</html>
